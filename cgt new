@@ -1,0 +1,210 @@
+SELECT  
+       t_Loan.OurBranchID BranchID,  
+       ISNULL(t_WFLoanApplication.GroupID,'') CentreID,  
+       ISNULL(BRNET_MIS.dbo.f_GetGroupName(t_WFLoanApplication.OurBranchID,t_WFLoanApplication.GroupID),'') CentreName,  
+       t_AccountCustomer.ClientID,  
+       t_AccountCustomer.Name [Client_Name],  
+       t_Loan.AccountID,  
+       t_Loan.ApplicationID,  
+       t_Loan.DisbursedAmount,
+       t_Loan.FirstDisbursementDate as DisbursedDate,
+       t_Client.LoanCycleNo, 
+       t_AccountCustomer.ProductID "ProductID",  
+       BRNET_MIS.dbo.f_GetProductName('57',t_AccountCustomer.ProductID) [Product Name],  
+       BRNET_MIS.dbo.fn_GetSystemCodeDesc('LoanStatusID',t_Loan.LoanStatusID ,BRNET_MIS.dbo.f_GetDefaultLanguageID()) [Loan Status ID],  
+       -- CAST(NULL AS NVARCHAR(250)) CreditOfficer,  
+       t_WFLoanApplication.CreditOfficerID CreditOfficer,  
+       BRNET_MIS.dbo.f_GetCreditOfficerName('57',t_WFLoanApplication.CreditOfficerID) [Credit Officer Name],  
+       CAST(NULL AS NVARCHAR(250)) [Disbursement Created by],  
+       CAST(NULL AS NVARCHAR(250)) [Disbursement Created by (Name)],  
+       CAST(NULL AS NVARCHAR(250)) [DisbursedByID / SupervisedBy],  
+       CAST(NULL AS NVARCHAR(250)) [DisbursedBy Name / SupervisedBy Name],  
+       CAST(NULL AS DATETIME) [SupervisedOn],  
+       CAST(NULL AS NVARCHAR(250)) [SupveriseRemarks],  
+       CASE WHEN (CASE WHEN t_Client.ID1CaptionID = '001' THEN t_Client.ID1  
+       WHEN t_Client.ID2CaptionID = '001' THEN t_Client.ID2  
+       WHEN t_Client.ID3CaptionID = '001' THEN t_Client.ID3  
+       WHEN t_Client.ID4CaptionID = '001' THEN t_Client.ID4  
+       END) IS NOT NULL THEN 'YES' ELSE 'NO' END[Adhar_Card],  
+       --CASE WHEN ID1CaptionID = 'AAD' THEN ID1 ELSE '' END 'Adhar_Card',  
+       BRNET_MIS.DBO.f_GetBankUserCodeDesc('57','IndIdentitySettingID',  
+       (CASE WHEN t_Client.ID1CaptionID NOT IN('001') THEN t_Client.ID1CaptionID  
+       WHEN t_Client.ID2CaptionID NOT IN('001') THEN t_Client.ID2CaptionID  
+       WHEN t_Client.ID3CaptionID NOT IN('001') THEN t_Client.ID3CaptionID  
+       WHEN t_Client.ID4CaptionID NOT IN('001') THEN t_Client.ID4CaptionID  
+       END)) [Other_PID],  
+       t_WFLoanApplication.RejectedDate RejectedDate,  
+       CAST(NULL AS NVARCHAR(250)) [CGT Done By (CO Emp ID)],  
+       CAST(NULL AS NVARCHAR(20)) [Geo.Latitude (CGT-House Visit)],  
+       CAST(NULL AS NVARCHAR(20)) [Geo.Longitude (CGT-House Visit)],  
+       CAST(NULL AS NVARCHAR(250)) [CGT Auth BY],  
+       CAST(NULL AS NVARCHAR(250)) [GRT Done BY],  
+       CAST(NULL AS NVARCHAR(250)) [Geo.Latitude (GRT-House Visit)],  
+       CAST(NULL AS NVARCHAR(250)) [Geo.Longitude (GRT-House Visit)],  
+       CAST(NULL AS NVARCHAR(250)) [GRT AUTH BY] INTO #UTK_CGT_GRT  
+FROM [BRNET_MIS]..t_Loan  
+INNER JOIN [BRNET_MIS]..t_AccountCustomer  
+ON t_Loan.AccountID = t_AccountCustomer.AccountID  
+AND t_Loan.OurBranchID = t_AccountCustomer.OurBranchID  
+Left Join [BRNET_MIS]..t_WFLoanApplication  
+ON t_WFLoanApplication.OurBranchID=t_Loan.OurBranchID  
+AND t_WFLoanApplication.ApplicationID=t_Loan.ApplicationID  
+INNER JOIN [BRNET_MIS]..t_Client  
+ON t_Client.ClientID = t_AccountCustomer.ClientID  
+AND t_Client.OurBranchID = t_AccountCustomer.OurBranchID  
+WHERE t_Loan.OurBranchID BETWEEN '1001' AND '2500'  
+AND t_AccountCustomer.OurBranchID BETWEEN '1001' AND '2500'  
+AND t_Loan.FirstDisbursementDate BETWEEN '01 jul 2025' AND '31 jul 2025'   
+AND t_Loan.LoanTransferDate IS NULL  
+AND t_Loan.ApplicationID IS NOT NULL-- AND t_Loan.AccountID='1845091000000003'  
+
+UPDATE #UTK_CGT_GRT  
+SET RejectedDate = ISNULL(#UTK_CGT_GRT.RejectedDate,t_WFLoanApplication.RejectedOn)  
+FROM #UTK_CGT_GRT  
+LEFT JOIN [BRNET_MIS]..t_WFLoanApplication WITH (NOLOCK)  
+ON #UTK_CGT_GRT.BranchID = t_WFLoanApplication.OurBranchID  
+AND #UTK_CGT_GRT.ApplicationID = t_WFLoanApplication.ApplicationID  
+AND t_WFLoanApplication.OurBranchID BETWEEN '1001' AND '2500'  
+--UPDATE #UTK_CGT_GRT  
+--SET [DisbursedByID / SupervisedBy] = t_Loan.DisbursedBY  
+--, [DisbursedBy Name / SupervisedBy Name]=v_User.ClientName  
+--FROM #UTK_CGT_GRT  
+--INNER JOIN t_Loan  
+--ON #UTK_CGT_GRT.AccountID = t_Loan.AccountID  
+--AND #UTK_CGT_GRT.BranchID = t_Loan.OurBranchID  
+--Inner Join v_User  
+--ON v_User.OperatorID=t_Loan.DisbursedBY  
+Select  
+t_LoanDisbDetail.TrxBranchID,t_LoanDisbDetail.TrxBatchID,t_LoanDisbDetail.AccountID,t_AccountTrx.CreatedBy,t_AccountTrx.CreatedOn,  
+       ISNULL(t_AccountTrx.SupervisedOn,t_AccountTrx.CreatedOn) SupervisedOn,ISNULL(t_AccountTrx.SupervisedBy,t_AccountTrx.CreatedBy) SupervisedBy,t_AccountTrx.Remarks   
+       INTO #Supervision   
+from [BRNET_MIS]..t_LoanDisbDetail Inner Join [BRNET_MIS]..t_AccountTrx  
+ON t_LoanDisbDetail.TrxBranchID=t_AccountTrx.TrxBranchID  
+AND t_LoanDisbDetail.TrxbatchID=t_AccountTrx.TrxbatchID  
+AND t_LoanDisbDetail.AccountID=t_AccountTrx.AccountID  
+WHere t_AccountTrx.AccountTypeID='C'  
+AND t_AccountTrx.ModuleID IN ('7410')  
+AND t_LoanDisbDetail.OurBranchID BETWEEN '1001' AND '2500'  
+AND t_LoanDisbDetail.DisbursedDate Between '01 jul 2025' AND '31 jul 2025'    
+AND t_AccountTrx.OurBranchID BETWEEN '1001' AND '2500'  
+AND t_AccountTrx.TrxDate Between '01 jul 2024' AND '31 jul 2024'     
+AND t_LoanDisbDetail.TrxBatchID IS NOT NULL  
+
+UPDATE #UTK_CGT_GRT  
+SET SupveriseRemarks = t_DisbursementSupervision.SupveriseRemarks  
+FROM #UTK_CGT_GRT  
+INNER JOIN BRNET_MIS.DBO.t_DisburseSuperviseDetail WITH(NOLOCK)  
+ON t_DisburseSuperviseDetail.OurBranchID = #UTK_CGT_GRT.BranchID  
+AND t_DisburseSuperviseDetail.ApplicationID = #UTK_CGT_GRT.ApplicationID  
+INNER JOIN BRNET_MIS.DBO.t_DisbursementSupervision WITH(NOLOCK)  
+ON t_DisbursementSupervision.SupervisionRefNo = t_DisburseSuperviseDetail.SupervisionRefNo  
+AND t_DisbursementSupervision.GroupID = #UTK_CGT_GRT.CentreID UPDATE #UTK_CGT_GRT  
+SET [Disbursement Created by] = #Supervision.CreatedBY  
+, [DisbursedByID / SupervisedBy] = #Supervision.SupervisedBY  
+, SupervisedOn = #Supervision.SupervisedOn  
+--, SupveriseRemarks = #Supervision.Remarks  
+FROM #UTK_CGT_GRT  
+Inner Join #Supervision  
+ON #UTK_CGT_GRT.BranchID=#Supervision.TrxBranchID  
+AND #UTK_CGT_GRT.AccountID=#Supervision.AccountID UPDATE #UTK_CGT_GRT  
+SET [Disbursement Created by (Name)] = User1.ClientName  
+FROM #UTK_CGT_GRT  
+Inner Join [BRNET_MIS]..v_User User1  
+ON #UTK_CGT_GRT.[Disbursement Created by]=User1.OperatorID UPDATE #UTK_CGT_GRT  
+SET [DisbursedBy Name / SupervisedBy Name] = User2.ClientName  
+FROM #UTK_CGT_GRT  
+Inner Join [BRNET_MIS]..v_User User2  
+ON #UTK_CGT_GRT.[DisbursedByID / SupervisedBy]=User2.OperatorID  
+
+Update #UTK_CGT_GRT  
+SET [CGT Done By (CO Emp ID)] = CGT.CGTDoneBY  
+, [CGT Auth BY] = CGT.CGTDoneBY  
+From #UTK_CGT_GRT  
+Inner Join  
+(  
+Select  
+       cv_GLOSCGTDetail.OurBranchID,  
+       cv_GLOSCGTDetail.ApplicationFileNo,  
+       cv_GlosClient.BRNETApplicationID,  
+       cv_GLOSCGTDetail.CGTDoneBY   
+from [BRNET_MIS]..cv_GLOSCGTDetail  
+Inner Join [BRNET_MIS]..cv_GlosClient  
+ON cv_GlosClient.OurBranchID=cv_GLOSCGTDetail.OurBranchID  
+AND cv_GlosClient.ApplicationFileNo=cv_GLOSCGTDetail.ApplicationFileNo  
+Where cv_GLOSCGTDetail.OurBranchID Between '1001' AND '2500'  
+--AND t_GLOSCGTDetail.CGTCycleNo='1'  
+--AND t_GLOSCGTDetail.CGTID='1'  
+)CGT  
+ON #UTK_CGT_GRT.BranchID=CGT.OurBranchID  
+AND #UTK_CGT_GRT.ApplicationID=CGT.BRNETApplicationID   
+
+Update #UTK_CGT_GRT  
+       SET [GRT Done BY] = GRT.GRTDoneBY  
+       , [GRT AUTH BY] = GRT.GRTDoneBY  
+From #UTK_CGT_GRT  
+Inner Join  
+(  
+Select  
+       cv_GLOSGRTDetail.OurBranchID,  
+       cv_GLOSGRTDetail.ApplicationFileNo,  
+       cv_GlosClient.BRNETApplicationID,  
+       cv_GLOSGRTDetail.GRTREfNo,  
+       cv_GLOSGRTDetail.GRTDoneBY  
+-- cv_GLOSGRTDetail.GRTDOneDate   
+from [BRNET_MIS]..cv_GLOSGRTDetail  
+Inner Join [BRNET_MIS]..cv_GlosClient  
+ON cv_GlosClient.OurBranchID=cv_GLOSGRTDetail.OurBranchID  
+AND cv_GlosClient.ApplicationFileNo=cv_GLOSGRTDetail.ApplicationFileNo  
+Where cv_GLOSGRTDetail.GRTRefNo='1'  
+)GRT  
+ON #UTK_CGT_GRT.BranchID=GRT.OurBranchID  
+AND #UTK_CGT_GRT.ApplicationID=GRT.BRNETApplicationID  
+
+Update #UTK_CGT_GRT  
+       SET [Geo.Latitude (CGT-House Visit)] = APPLoc20.[20APP Latitude]  
+       , [Geo.Longitude (CGT-House Visit)] = APPLoc20.[20APP Longitude]   
+From #UTK_CGT_GRT  
+Inner Join  
+(  
+Select  
+       cv_GlosClient.OurBranchID,  
+       cv_GlosClient.ApplicationFileNo,  
+       cv_GlosClient.BRNETApplicationID,  
+       Latitude [20APP Latitude],  
+       Longitude [20APP Longitude]   
+from [BRNET_MIS]..cv_GLOSMemberCPV2 Inner Join [BRNET_MIS]..cv_GlosClient  
+ON cv_GlosClient.OurBranchID=cv_GLOSMemberCPV2.OurBranchID  
+AND cv_GlosClient.ApplicationFileNo=cv_GLOSMemberCPV2.ApplicationFileNo  
+AND cv_GlosClient.MemberID=cv_GLOSMemberCPV2.MemberID  
+Where cv_GLOSMemberCPV2.GLOSCPV2StageID='20APP'  
+-- AND cv_GLOSMemberCPV2.ApplicationFileNo=100322004023  
+)APPLoc20  
+ON #UTK_CGT_GRT.BranchID=APPLoc20.OurBranchID  
+AND #UTK_CGT_GRT.ApplicationID=APPLoc20.BRNETApplicationID  
+
+Update #UTK_CGT_GRT  
+       SET [Geo.Latitude (GRT-House Visit)] = APRLoc30.[APR30 Latitude]  
+       , [Geo.Longitude (GRT-House Visit)]  = APRLoc30.[APR30 Longitude]   
+From #UTK_CGT_GRT  
+Inner Join  
+(  
+Select  
+       cv_GlosClient.OurBranchID,  
+       cv_GlosClient.ApplicationFileNo,  
+       cv_GlosClient.BRNETApplicationID,  
+       Latitude [APR30 Latitude], 
+       Longitude [APR30 Longitude]  
+from [BRNET_MIS]..cv_GLOSMemberCPV2 Inner Join [BRNET_MIS]..cv_GlosClient  
+ON cv_GlosClient.OurBranchID=cv_GLOSMemberCPV2.OurBranchID  
+AND cv_GlosClient.ApplicationFileNo=cv_GLOSMemberCPV2.ApplicationFileNo  
+AND cv_GlosClient.MemberID=cv_GLOSMemberCPV2.MemberID  
+Where cv_GLOSMemberCPV2.GLOSCPV2StageID='30APR'  
+-- AND cv_GLOSMemberCPV2.ApplicationFileNo=100322004023  
+)APRLoc30  
+ON #UTK_CGT_GRT.BranchID=APRLoc30.OurBranchID  
+AND #UTK_CGT_GRT.ApplicationID=APRLoc30.BRNETApplicationID   
+
+SELECT  
+*  
+FROM #UTK_CGT_GRT  
+--DROP TABLE #UTK_CGT_GRT,#Supervision  
